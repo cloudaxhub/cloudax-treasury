@@ -1,4 +1,4 @@
-# Cloudax Token Contract
+# Cloudax Treasury Wallet
 
 ```shell
 npx hardhat help
