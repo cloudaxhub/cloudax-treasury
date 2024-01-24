@@ -2,7 +2,7 @@
 
 // SPDX-License-Identifier: MIT
 
-// File @openzeppelin/contracts/utils/Context.sol@v4.7.1
+// File @openzeppelin/contracts/utils/Context.sol@v4.9.3
 
 // Original license: SPDX_License_Identifier: MIT
 // OpenZeppelin Contracts v4.4.1 (utils/Context.sol)
@@ -30,10 +30,10 @@ abstract contract Context {
 }
 
 
-// File @openzeppelin/contracts/access/Ownable.sol@v4.7.1
+// File @openzeppelin/contracts/access/Ownable.sol@v4.9.3
 
 // Original license: SPDX_License_Identifier: MIT
-// OpenZeppelin Contracts (last updated v4.7.0) (access/Ownable.sol)
+// OpenZeppelin Contracts (last updated v4.9.0) (access/Ownable.sol)
 
 pragma solidity ^0.8.0;
 
@@ -85,10 +85,10 @@ abstract contract Ownable is Context {
 
     /**
      * @dev Leaves the contract without owner. It will not be possible to call
-     * `onlyOwner` functions anymore. Can only be called by the current owner.
+     * `onlyOwner` functions. Can only be called by the current owner.
      *
      * NOTE: Renouncing ownership will leave the contract without an owner,
-     * thereby removing any functionality that is only available to the owner.
+     * thereby disabling any functionality that is only available to the owner.
      */
     function renounceOwnership() public virtual onlyOwner {
         _transferOwnership(address(0));
@@ -115,10 +115,10 @@ abstract contract Ownable is Context {
 }
 
 
-// File @openzeppelin/contracts/utils/Address.sol@v4.7.1
+// File @openzeppelin/contracts/utils/Address.sol@v4.9.3
 
 // Original license: SPDX_License_Identifier: MIT
-// OpenZeppelin Contracts (last updated v4.7.0) (utils/Address.sol)
+// OpenZeppelin Contracts (last updated v4.9.0) (utils/Address.sol)
 
 pragma solidity ^0.8.1;
 
@@ -141,6 +141,10 @@ library Address {
      *  - a contract in construction
      *  - an address where a contract will be created
      *  - an address where a contract lived, but was destroyed
+     *
+     * Furthermore, `isContract` will also return true if the target contract within
+     * the same transaction is already scheduled for destruction by `SELFDESTRUCT`,
+     * which only has an effect at the end of a transaction.
      * ====
      *
      * [IMPORTANT]
@@ -169,12 +173,12 @@ library Address {
      * imposed by `transfer`, making them unable to receive funds via
      * `transfer`. {sendValue} removes this limitation.
      *
-     * https://diligence.consensys.net/posts/2019/09/stop-using-soliditys-transfer-now/[Learn more].
+     * https://consensys.net/diligence/blog/2019/09/stop-using-soliditys-transfer-now/[Learn more].
      *
      * IMPORTANT: because control is transferred to `recipient`, care must be
      * taken to not create reentrancy vulnerabilities. Consider using
      * {ReentrancyGuard} or the
-     * https://solidity.readthedocs.io/en/v0.5.11/security-considerations.html#use-the-checks-effects-interactions-pattern[checks-effects-interactions pattern].
+     * https://solidity.readthedocs.io/en/v0.8.0/security-considerations.html#use-the-checks-effects-interactions-pattern[checks-effects-interactions pattern].
      */
     function sendValue(address payable recipient, uint256 amount) internal {
         require(address(this).balance >= amount, "Address: insufficient balance");
@@ -202,7 +206,7 @@ library Address {
      * _Available since v3.1._
      */
     function functionCall(address target, bytes memory data) internal returns (bytes memory) {
-        return functionCall(target, data, "Address: low-level call failed");
+        return functionCallWithValue(target, data, 0, "Address: low-level call failed");
     }
 
     /**
@@ -230,11 +234,7 @@ library Address {
      *
      * _Available since v3.1._
      */
-    function functionCallWithValue(
-        address target,
-        bytes memory data,
-        uint256 value
-    ) internal returns (bytes memory) {
+    function functionCallWithValue(address target, bytes memory data, uint256 value) internal returns (bytes memory) {
         return functionCallWithValue(target, data, value, "Address: low-level call with value failed");
     }
 
@@ -251,10 +251,8 @@ library Address {
         string memory errorMessage
     ) internal returns (bytes memory) {
         require(address(this).balance >= value, "Address: insufficient balance for call");
-        require(isContract(target), "Address: call to non-contract");
-
         (bool success, bytes memory returndata) = target.call{value: value}(data);
-        return verifyCallResult(success, returndata, errorMessage);
+        return verifyCallResultFromTarget(target, success, returndata, errorMessage);
     }
 
     /**
@@ -278,10 +276,8 @@ library Address {
         bytes memory data,
         string memory errorMessage
     ) internal view returns (bytes memory) {
-        require(isContract(target), "Address: static call to non-contract");
-
         (bool success, bytes memory returndata) = target.staticcall(data);
-        return verifyCallResult(success, returndata, errorMessage);
+        return verifyCallResultFromTarget(target, success, returndata, errorMessage);
     }
 
     /**
@@ -305,15 +301,37 @@ library Address {
         bytes memory data,
         string memory errorMessage
     ) internal returns (bytes memory) {
-        require(isContract(target), "Address: delegate call to non-contract");
-
         (bool success, bytes memory returndata) = target.delegatecall(data);
-        return verifyCallResult(success, returndata, errorMessage);
+        return verifyCallResultFromTarget(target, success, returndata, errorMessage);
     }
 
     /**
-     * @dev Tool to verifies that a low level call was successful, and revert if it wasn't, either by bubbling the
-     * revert reason using the provided one.
+     * @dev Tool to verify that a low level call to smart-contract was successful, and revert (either by bubbling
+     * the revert reason or using the provided one) in case of unsuccessful call or if target was not a contract.
+     *
+     * _Available since v4.8._
+     */
+    function verifyCallResultFromTarget(
+        address target,
+        bool success,
+        bytes memory returndata,
+        string memory errorMessage
+    ) internal view returns (bytes memory) {
+        if (success) {
+            if (returndata.length == 0) {
+                // only check isContract if the call was successful and the return data is empty
+                // otherwise we already know that it was a contract
+                require(isContract(target), "Address: call to non-contract");
+            }
+            return returndata;
+        } else {
+            _revert(returndata, errorMessage);
+        }
+    }
+
+    /**
+     * @dev Tool to verify that a low level call was successful, and revert if it wasn't, either by bubbling the
+     * revert reason or using the provided one.
      *
      * _Available since v4.3._
      */
@@ -325,26 +343,30 @@ library Address {
         if (success) {
             return returndata;
         } else {
-            // Look for revert reason and bubble it up if present
-            if (returndata.length > 0) {
-                // The easiest way to bubble the revert reason is using memory via assembly
-                /// @solidity memory-safe-assembly
-                assembly {
-                    let returndata_size := mload(returndata)
-                    revert(add(32, returndata), returndata_size)
-                }
-            } else {
-                revert(errorMessage);
+            _revert(returndata, errorMessage);
+        }
+    }
+
+    function _revert(bytes memory returndata, string memory errorMessage) private pure {
+        // Look for revert reason and bubble it up if present
+        if (returndata.length > 0) {
+            // The easiest way to bubble the revert reason is using memory via assembly
+            /// @solidity memory-safe-assembly
+            assembly {
+                let returndata_size := mload(returndata)
+                revert(add(32, returndata), returndata_size)
             }
+        } else {
+            revert(errorMessage);
         }
     }
 }
 
 
-// File @openzeppelin/contracts/proxy/utils/Initializable.sol@v4.7.1
+// File @openzeppelin/contracts/proxy/utils/Initializable.sol@v4.9.3
 
 // Original license: SPDX_License_Identifier: MIT
-// OpenZeppelin Contracts (last updated v4.7.0) (proxy/utils/Initializable.sol)
+// OpenZeppelin Contracts (last updated v4.9.0) (proxy/utils/Initializable.sol)
 
 pragma solidity ^0.8.2;
 
@@ -361,12 +383,13 @@ pragma solidity ^0.8.2;
  * For example:
  *
  * [.hljs-theme-light.nopadding]
- * ```
+ * ```solidity
  * contract MyToken is ERC20Upgradeable {
  *     function initialize() initializer public {
  *         __ERC20_init("MyToken", "MTK");
  *     }
  * }
+ *
  * contract MyTokenV2 is MyToken, ERC20PermitUpgradeable {
  *     function initializeV2() reinitializer(2) public {
  *         __ERC20Permit_init("MyToken");
@@ -416,7 +439,12 @@ abstract contract Initializable {
 
     /**
      * @dev A modifier that defines a protected initializer function that can be invoked at most once. In its scope,
-     * `onlyInitializing` functions can be used to initialize parent contracts. Equivalent to `reinitializer(1)`.
+     * `onlyInitializing` functions can be used to initialize parent contracts.
+     *
+     * Similar to `reinitializer(1)`, except that functions marked with `initializer` can be nested in the context of a
+     * constructor.
+     *
+     * Emits an {Initialized} event.
      */
     modifier initializer() {
         bool isTopLevelCall = !_initializing;
@@ -440,12 +468,18 @@ abstract contract Initializable {
      * contract hasn't been initialized to a greater version before. In its scope, `onlyInitializing` functions can be
      * used to initialize parent contracts.
      *
-     * `initializer` is equivalent to `reinitializer(1)`, so a reinitializer may be used after the original
-     * initialization step. This is essential to configure modules that are added through upgrades and that require
-     * initialization.
+     * A reinitializer may be used after the original initialization step. This is essential to configure modules that
+     * are added through upgrades and that require initialization.
+     *
+     * When `version` is 1, this modifier is similar to `initializer`, except that functions marked with `reinitializer`
+     * cannot be nested. If one is invoked in the context of another, execution will revert.
      *
      * Note that versions can jump in increments greater than 1; this implies that if multiple reinitializers coexist in
      * a contract, executing them in the right order is up to the developer or operator.
+     *
+     * WARNING: setting the version to 255 will prevent any future reinitialization.
+     *
+     * Emits an {Initialized} event.
      */
     modifier reinitializer(uint8 version) {
         require(!_initializing && _initialized < version, "Initializable: contract is already initialized");
@@ -470,18 +504,34 @@ abstract contract Initializable {
      * Calling this in the constructor of a contract will prevent that contract from being initialized or reinitialized
      * to any version. It is recommended to use this to lock implementation contracts that are designed to be called
      * through proxies.
+     *
+     * Emits an {Initialized} event the first time it is successfully executed.
      */
     function _disableInitializers() internal virtual {
         require(!_initializing, "Initializable: contract is initializing");
-        if (_initialized < type(uint8).max) {
+        if (_initialized != type(uint8).max) {
             _initialized = type(uint8).max;
             emit Initialized(type(uint8).max);
         }
     }
+
+    /**
+     * @dev Returns the highest version that has been initialized. See {reinitializer}.
+     */
+    function _getInitializedVersion() internal view returns (uint8) {
+        return _initialized;
+    }
+
+    /**
+     * @dev Returns `true` if the contract is currently initializing. See {onlyInitializing}.
+     */
+    function _isInitializing() internal view returns (bool) {
+        return _initializing;
+    }
 }
 
 
-// File @openzeppelin/contracts/security/Pausable.sol@v4.7.1
+// File @openzeppelin/contracts/security/Pausable.sol@v4.9.3
 
 // Original license: SPDX_License_Identifier: MIT
 // OpenZeppelin Contracts (last updated v4.7.0) (security/Pausable.sol)
@@ -588,74 +638,10 @@ abstract contract Pausable is Context {
 }
 
 
-// File @openzeppelin/contracts/token/ERC20/extensions/draft-IERC20Permit.sol@v4.7.1
+// File @openzeppelin/contracts/token/ERC20/IERC20.sol@v4.9.3
 
 // Original license: SPDX_License_Identifier: MIT
-// OpenZeppelin Contracts v4.4.1 (token/ERC20/extensions/draft-IERC20Permit.sol)
-
-pragma solidity ^0.8.0;
-
-/**
- * @dev Interface of the ERC20 Permit extension allowing approvals to be made via signatures, as defined in
- * https://eips.ethereum.org/EIPS/eip-2612[EIP-2612].
- *
- * Adds the {permit} method, which can be used to change an account's ERC20 allowance (see {IERC20-allowance}) by
- * presenting a message signed by the account. By not relying on {IERC20-approve}, the token holder account doesn't
- * need to send a transaction, and thus is not required to hold Ether at all.
- */
-interface IERC20Permit {
-    /**
-     * @dev Sets `value` as the allowance of `spender` over ``owner``'s tokens,
-     * given ``owner``'s signed approval.
-     *
-     * IMPORTANT: The same issues {IERC20-approve} has related to transaction
-     * ordering also apply here.
-     *
-     * Emits an {Approval} event.
-     *
-     * Requirements:
-     *
-     * - `spender` cannot be the zero address.
-     * - `deadline` must be a timestamp in the future.
-     * - `v`, `r` and `s` must be a valid `secp256k1` signature from `owner`
-     * over the EIP712-formatted function arguments.
-     * - the signature must use ``owner``'s current nonce (see {nonces}).
-     *
-     * For more information on the signature format, see the
-     * https://eips.ethereum.org/EIPS/eip-2612#specification[relevant EIP
-     * section].
-     */
-    function permit(
-        address owner,
-        address spender,
-        uint256 value,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external;
-
-    /**
-     * @dev Returns the current nonce for `owner`. This value must be
-     * included whenever a signature is generated for {permit}.
-     *
-     * Every successful call to {permit} increases ``owner``'s nonce by one. This
-     * prevents a signature from being used multiple times.
-     */
-    function nonces(address owner) external view returns (uint256);
-
-    /**
-     * @dev Returns the domain separator used in the encoding of the signature for {permit}, as defined by {EIP712}.
-     */
-    // solhint-disable-next-line func-name-mixedcase
-    function DOMAIN_SEPARATOR() external view returns (bytes32);
-}
-
-
-// File @openzeppelin/contracts/token/ERC20/IERC20.sol@v4.7.1
-
-// Original license: SPDX_License_Identifier: MIT
-// OpenZeppelin Contracts (last updated v4.6.0) (token/ERC20/IERC20.sol)
+// OpenZeppelin Contracts (last updated v4.9.0) (token/ERC20/IERC20.sol)
 
 pragma solidity ^0.8.0;
 
@@ -730,18 +716,475 @@ interface IERC20 {
      *
      * Emits a {Transfer} event.
      */
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
 }
 
 
-// File @openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol@v4.7.1
+// File @openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol@v4.9.3
 
 // Original license: SPDX_License_Identifier: MIT
-// OpenZeppelin Contracts (last updated v4.7.0) (token/ERC20/utils/SafeERC20.sol)
+// OpenZeppelin Contracts v4.4.1 (token/ERC20/extensions/IERC20Metadata.sol)
+
+pragma solidity ^0.8.0;
+
+/**
+ * @dev Interface for the optional metadata functions from the ERC20 standard.
+ *
+ * _Available since v4.1._
+ */
+interface IERC20Metadata is IERC20 {
+    /**
+     * @dev Returns the name of the token.
+     */
+    function name() external view returns (string memory);
+
+    /**
+     * @dev Returns the symbol of the token.
+     */
+    function symbol() external view returns (string memory);
+
+    /**
+     * @dev Returns the decimals places of the token.
+     */
+    function decimals() external view returns (uint8);
+}
+
+
+// File @openzeppelin/contracts/token/ERC20/ERC20.sol@v4.9.3
+
+// Original license: SPDX_License_Identifier: MIT
+// OpenZeppelin Contracts (last updated v4.9.0) (token/ERC20/ERC20.sol)
+
+pragma solidity ^0.8.0;
+
+
+
+/**
+ * @dev Implementation of the {IERC20} interface.
+ *
+ * This implementation is agnostic to the way tokens are created. This means
+ * that a supply mechanism has to be added in a derived contract using {_mint}.
+ * For a generic mechanism see {ERC20PresetMinterPauser}.
+ *
+ * TIP: For a detailed writeup see our guide
+ * https://forum.openzeppelin.com/t/how-to-implement-erc20-supply-mechanisms/226[How
+ * to implement supply mechanisms].
+ *
+ * The default value of {decimals} is 18. To change this, you should override
+ * this function so it returns a different value.
+ *
+ * We have followed general OpenZeppelin Contracts guidelines: functions revert
+ * instead returning `false` on failure. This behavior is nonetheless
+ * conventional and does not conflict with the expectations of ERC20
+ * applications.
+ *
+ * Additionally, an {Approval} event is emitted on calls to {transferFrom}.
+ * This allows applications to reconstruct the allowance for all accounts just
+ * by listening to said events. Other implementations of the EIP may not emit
+ * these events, as it isn't required by the specification.
+ *
+ * Finally, the non-standard {decreaseAllowance} and {increaseAllowance}
+ * functions have been added to mitigate the well-known issues around setting
+ * allowances. See {IERC20-approve}.
+ */
+contract ERC20 is Context, IERC20, IERC20Metadata {
+    mapping(address => uint256) private _balances;
+
+    mapping(address => mapping(address => uint256)) private _allowances;
+
+    uint256 private _totalSupply;
+
+    string private _name;
+    string private _symbol;
+
+    /**
+     * @dev Sets the values for {name} and {symbol}.
+     *
+     * All two of these values are immutable: they can only be set once during
+     * construction.
+     */
+    constructor(string memory name_, string memory symbol_) {
+        _name = name_;
+        _symbol = symbol_;
+    }
+
+    /**
+     * @dev Returns the name of the token.
+     */
+    function name() public view virtual override returns (string memory) {
+        return _name;
+    }
+
+    /**
+     * @dev Returns the symbol of the token, usually a shorter version of the
+     * name.
+     */
+    function symbol() public view virtual override returns (string memory) {
+        return _symbol;
+    }
+
+    /**
+     * @dev Returns the number of decimals used to get its user representation.
+     * For example, if `decimals` equals `2`, a balance of `505` tokens should
+     * be displayed to a user as `5.05` (`505 / 10 ** 2`).
+     *
+     * Tokens usually opt for a value of 18, imitating the relationship between
+     * Ether and Wei. This is the default value returned by this function, unless
+     * it's overridden.
+     *
+     * NOTE: This information is only used for _display_ purposes: it in
+     * no way affects any of the arithmetic of the contract, including
+     * {IERC20-balanceOf} and {IERC20-transfer}.
+     */
+    function decimals() public view virtual override returns (uint8) {
+        return 18;
+    }
+
+    /**
+     * @dev See {IERC20-totalSupply}.
+     */
+    function totalSupply() public view virtual override returns (uint256) {
+        return _totalSupply;
+    }
+
+    /**
+     * @dev See {IERC20-balanceOf}.
+     */
+    function balanceOf(address account) public view virtual override returns (uint256) {
+        return _balances[account];
+    }
+
+    /**
+     * @dev See {IERC20-transfer}.
+     *
+     * Requirements:
+     *
+     * - `to` cannot be the zero address.
+     * - the caller must have a balance of at least `amount`.
+     */
+    function transfer(address to, uint256 amount) public virtual override returns (bool) {
+        address owner = _msgSender();
+        _transfer(owner, to, amount);
+        return true;
+    }
+
+    /**
+     * @dev See {IERC20-allowance}.
+     */
+    function allowance(address owner, address spender) public view virtual override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    /**
+     * @dev See {IERC20-approve}.
+     *
+     * NOTE: If `amount` is the maximum `uint256`, the allowance is not updated on
+     * `transferFrom`. This is semantically equivalent to an infinite approval.
+     *
+     * Requirements:
+     *
+     * - `spender` cannot be the zero address.
+     */
+    function approve(address spender, uint256 amount) public virtual override returns (bool) {
+        address owner = _msgSender();
+        _approve(owner, spender, amount);
+        return true;
+    }
+
+    /**
+     * @dev See {IERC20-transferFrom}.
+     *
+     * Emits an {Approval} event indicating the updated allowance. This is not
+     * required by the EIP. See the note at the beginning of {ERC20}.
+     *
+     * NOTE: Does not update the allowance if the current allowance
+     * is the maximum `uint256`.
+     *
+     * Requirements:
+     *
+     * - `from` and `to` cannot be the zero address.
+     * - `from` must have a balance of at least `amount`.
+     * - the caller must have allowance for ``from``'s tokens of at least
+     * `amount`.
+     */
+    function transferFrom(address from, address to, uint256 amount) public virtual override returns (bool) {
+        address spender = _msgSender();
+        _spendAllowance(from, spender, amount);
+        _transfer(from, to, amount);
+        return true;
+    }
+
+    /**
+     * @dev Atomically increases the allowance granted to `spender` by the caller.
+     *
+     * This is an alternative to {approve} that can be used as a mitigation for
+     * problems described in {IERC20-approve}.
+     *
+     * Emits an {Approval} event indicating the updated allowance.
+     *
+     * Requirements:
+     *
+     * - `spender` cannot be the zero address.
+     */
+    function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
+        address owner = _msgSender();
+        _approve(owner, spender, allowance(owner, spender) + addedValue);
+        return true;
+    }
+
+    /**
+     * @dev Atomically decreases the allowance granted to `spender` by the caller.
+     *
+     * This is an alternative to {approve} that can be used as a mitigation for
+     * problems described in {IERC20-approve}.
+     *
+     * Emits an {Approval} event indicating the updated allowance.
+     *
+     * Requirements:
+     *
+     * - `spender` cannot be the zero address.
+     * - `spender` must have allowance for the caller of at least
+     * `subtractedValue`.
+     */
+    function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
+        address owner = _msgSender();
+        uint256 currentAllowance = allowance(owner, spender);
+        require(currentAllowance >= subtractedValue, "ERC20: decreased allowance below zero");
+        unchecked {
+            _approve(owner, spender, currentAllowance - subtractedValue);
+        }
+
+        return true;
+    }
+
+    /**
+     * @dev Moves `amount` of tokens from `from` to `to`.
+     *
+     * This internal function is equivalent to {transfer}, and can be used to
+     * e.g. implement automatic token fees, slashing mechanisms, etc.
+     *
+     * Emits a {Transfer} event.
+     *
+     * Requirements:
+     *
+     * - `from` cannot be the zero address.
+     * - `to` cannot be the zero address.
+     * - `from` must have a balance of at least `amount`.
+     */
+    function _transfer(address from, address to, uint256 amount) internal virtual {
+        require(from != address(0), "ERC20: transfer from the zero address");
+        require(to != address(0), "ERC20: transfer to the zero address");
+
+        _beforeTokenTransfer(from, to, amount);
+
+        uint256 fromBalance = _balances[from];
+        require(fromBalance >= amount, "ERC20: transfer amount exceeds balance");
+        unchecked {
+            _balances[from] = fromBalance - amount;
+            // Overflow not possible: the sum of all balances is capped by totalSupply, and the sum is preserved by
+            // decrementing then incrementing.
+            _balances[to] += amount;
+        }
+
+        emit Transfer(from, to, amount);
+
+        _afterTokenTransfer(from, to, amount);
+    }
+
+    /** @dev Creates `amount` tokens and assigns them to `account`, increasing
+     * the total supply.
+     *
+     * Emits a {Transfer} event with `from` set to the zero address.
+     *
+     * Requirements:
+     *
+     * - `account` cannot be the zero address.
+     */
+    function _mint(address account, uint256 amount) internal virtual {
+        require(account != address(0), "ERC20: mint to the zero address");
+
+        _beforeTokenTransfer(address(0), account, amount);
+
+        _totalSupply += amount;
+        unchecked {
+            // Overflow not possible: balance + amount is at most totalSupply + amount, which is checked above.
+            _balances[account] += amount;
+        }
+        emit Transfer(address(0), account, amount);
+
+        _afterTokenTransfer(address(0), account, amount);
+    }
+
+    /**
+     * @dev Destroys `amount` tokens from `account`, reducing the
+     * total supply.
+     *
+     * Emits a {Transfer} event with `to` set to the zero address.
+     *
+     * Requirements:
+     *
+     * - `account` cannot be the zero address.
+     * - `account` must have at least `amount` tokens.
+     */
+    function _burn(address account, uint256 amount) internal virtual {
+        require(account != address(0), "ERC20: burn from the zero address");
+
+        _beforeTokenTransfer(account, address(0), amount);
+
+        uint256 accountBalance = _balances[account];
+        require(accountBalance >= amount, "ERC20: burn amount exceeds balance");
+        unchecked {
+            _balances[account] = accountBalance - amount;
+            // Overflow not possible: amount <= accountBalance <= totalSupply.
+            _totalSupply -= amount;
+        }
+
+        emit Transfer(account, address(0), amount);
+
+        _afterTokenTransfer(account, address(0), amount);
+    }
+
+    /**
+     * @dev Sets `amount` as the allowance of `spender` over the `owner` s tokens.
+     *
+     * This internal function is equivalent to `approve`, and can be used to
+     * e.g. set automatic allowances for certain subsystems, etc.
+     *
+     * Emits an {Approval} event.
+     *
+     * Requirements:
+     *
+     * - `owner` cannot be the zero address.
+     * - `spender` cannot be the zero address.
+     */
+    function _approve(address owner, address spender, uint256 amount) internal virtual {
+        require(owner != address(0), "ERC20: approve from the zero address");
+        require(spender != address(0), "ERC20: approve to the zero address");
+
+        _allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
+
+    /**
+     * @dev Updates `owner` s allowance for `spender` based on spent `amount`.
+     *
+     * Does not update the allowance amount in case of infinite allowance.
+     * Revert if not enough allowance is available.
+     *
+     * Might emit an {Approval} event.
+     */
+    function _spendAllowance(address owner, address spender, uint256 amount) internal virtual {
+        uint256 currentAllowance = allowance(owner, spender);
+        if (currentAllowance != type(uint256).max) {
+            require(currentAllowance >= amount, "ERC20: insufficient allowance");
+            unchecked {
+                _approve(owner, spender, currentAllowance - amount);
+            }
+        }
+    }
+
+    /**
+     * @dev Hook that is called before any transfer of tokens. This includes
+     * minting and burning.
+     *
+     * Calling conditions:
+     *
+     * - when `from` and `to` are both non-zero, `amount` of ``from``'s tokens
+     * will be transferred to `to`.
+     * - when `from` is zero, `amount` tokens will be minted for `to`.
+     * - when `to` is zero, `amount` of ``from``'s tokens will be burned.
+     * - `from` and `to` are never both zero.
+     *
+     * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
+     */
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual {}
+
+    /**
+     * @dev Hook that is called after any transfer of tokens. This includes
+     * minting and burning.
+     *
+     * Calling conditions:
+     *
+     * - when `from` and `to` are both non-zero, `amount` of ``from``'s tokens
+     * has been transferred to `to`.
+     * - when `from` is zero, `amount` tokens have been minted for `to`.
+     * - when `to` is zero, `amount` of ``from``'s tokens have been burned.
+     * - `from` and `to` are never both zero.
+     *
+     * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
+     */
+    function _afterTokenTransfer(address from, address to, uint256 amount) internal virtual {}
+}
+
+
+// File @openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol@v4.9.3
+
+// Original license: SPDX_License_Identifier: MIT
+// OpenZeppelin Contracts (last updated v4.9.0) (token/ERC20/extensions/IERC20Permit.sol)
+
+pragma solidity ^0.8.0;
+
+/**
+ * @dev Interface of the ERC20 Permit extension allowing approvals to be made via signatures, as defined in
+ * https://eips.ethereum.org/EIPS/eip-2612[EIP-2612].
+ *
+ * Adds the {permit} method, which can be used to change an account's ERC20 allowance (see {IERC20-allowance}) by
+ * presenting a message signed by the account. By not relying on {IERC20-approve}, the token holder account doesn't
+ * need to send a transaction, and thus is not required to hold Ether at all.
+ */
+interface IERC20Permit {
+    /**
+     * @dev Sets `value` as the allowance of `spender` over ``owner``'s tokens,
+     * given ``owner``'s signed approval.
+     *
+     * IMPORTANT: The same issues {IERC20-approve} has related to transaction
+     * ordering also apply here.
+     *
+     * Emits an {Approval} event.
+     *
+     * Requirements:
+     *
+     * - `spender` cannot be the zero address.
+     * - `deadline` must be a timestamp in the future.
+     * - `v`, `r` and `s` must be a valid `secp256k1` signature from `owner`
+     * over the EIP712-formatted function arguments.
+     * - the signature must use ``owner``'s current nonce (see {nonces}).
+     *
+     * For more information on the signature format, see the
+     * https://eips.ethereum.org/EIPS/eip-2612#specification[relevant EIP
+     * section].
+     */
+    function permit(
+        address owner,
+        address spender,
+        uint256 value,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external;
+
+    /**
+     * @dev Returns the current nonce for `owner`. This value must be
+     * included whenever a signature is generated for {permit}.
+     *
+     * Every successful call to {permit} increases ``owner``'s nonce by one. This
+     * prevents a signature from being used multiple times.
+     */
+    function nonces(address owner) external view returns (uint256);
+
+    /**
+     * @dev Returns the domain separator used in the encoding of the signature for {permit}, as defined by {EIP712}.
+     */
+    // solhint-disable-next-line func-name-mixedcase
+    function DOMAIN_SEPARATOR() external view returns (bytes32);
+}
+
+
+// File @openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol@v4.9.3
+
+// Original license: SPDX_License_Identifier: MIT
+// OpenZeppelin Contracts (last updated v4.9.3) (token/ERC20/utils/SafeERC20.sol)
 
 pragma solidity ^0.8.0;
 
@@ -759,20 +1202,19 @@ pragma solidity ^0.8.0;
 library SafeERC20 {
     using Address for address;
 
-    function safeTransfer(
-        IERC20 token,
-        address to,
-        uint256 value
-    ) internal {
+    /**
+     * @dev Transfer `value` amount of `token` from the calling contract to `to`. If `token` returns no value,
+     * non-reverting calls are assumed to be successful.
+     */
+    function safeTransfer(IERC20 token, address to, uint256 value) internal {
         _callOptionalReturn(token, abi.encodeWithSelector(token.transfer.selector, to, value));
     }
 
-    function safeTransferFrom(
-        IERC20 token,
-        address from,
-        address to,
-        uint256 value
-    ) internal {
+    /**
+     * @dev Transfer `value` amount of `token` from `from` to `to`, spending the approval given by `from` to the
+     * calling contract. If `token` returns no value, non-reverting calls are assumed to be successful.
+     */
+    function safeTransferFrom(IERC20 token, address from, address to, uint256 value) internal {
         _callOptionalReturn(token, abi.encodeWithSelector(token.transferFrom.selector, from, to, value));
     }
 
@@ -783,11 +1225,7 @@ library SafeERC20 {
      * Whenever possible, use {safeIncreaseAllowance} and
      * {safeDecreaseAllowance} instead.
      */
-    function safeApprove(
-        IERC20 token,
-        address spender,
-        uint256 value
-    ) internal {
+    function safeApprove(IERC20 token, address spender, uint256 value) internal {
         // safeApprove should only be called when setting an initial allowance,
         // or when resetting it to zero. To increase and decrease it, use
         // 'safeIncreaseAllowance' and 'safeDecreaseAllowance'
@@ -798,28 +1236,45 @@ library SafeERC20 {
         _callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, value));
     }
 
-    function safeIncreaseAllowance(
-        IERC20 token,
-        address spender,
-        uint256 value
-    ) internal {
-        uint256 newAllowance = token.allowance(address(this), spender) + value;
-        _callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, newAllowance));
+    /**
+     * @dev Increase the calling contract's allowance toward `spender` by `value`. If `token` returns no value,
+     * non-reverting calls are assumed to be successful.
+     */
+    function safeIncreaseAllowance(IERC20 token, address spender, uint256 value) internal {
+        uint256 oldAllowance = token.allowance(address(this), spender);
+        _callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, oldAllowance + value));
     }
 
-    function safeDecreaseAllowance(
-        IERC20 token,
-        address spender,
-        uint256 value
-    ) internal {
+    /**
+     * @dev Decrease the calling contract's allowance toward `spender` by `value`. If `token` returns no value,
+     * non-reverting calls are assumed to be successful.
+     */
+    function safeDecreaseAllowance(IERC20 token, address spender, uint256 value) internal {
         unchecked {
             uint256 oldAllowance = token.allowance(address(this), spender);
             require(oldAllowance >= value, "SafeERC20: decreased allowance below zero");
-            uint256 newAllowance = oldAllowance - value;
-            _callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, newAllowance));
+            _callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, oldAllowance - value));
         }
     }
 
+    /**
+     * @dev Set the calling contract's allowance toward `spender` to `value`. If `token` returns no value,
+     * non-reverting calls are assumed to be successful. Meant to be used with tokens that require the approval
+     * to be set to zero before setting it to a non-zero value, such as USDT.
+     */
+    function forceApprove(IERC20 token, address spender, uint256 value) internal {
+        bytes memory approvalCall = abi.encodeWithSelector(token.approve.selector, spender, value);
+
+        if (!_callOptionalReturnBool(token, approvalCall)) {
+            _callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, 0));
+            _callOptionalReturn(token, approvalCall);
+        }
+    }
+
+    /**
+     * @dev Use a ERC-2612 signature to set the `owner` approval toward `spender` on `token`.
+     * Revert on invalid signature.
+     */
     function safePermit(
         IERC20Permit token,
         address owner,
@@ -844,22 +1299,37 @@ library SafeERC20 {
      */
     function _callOptionalReturn(IERC20 token, bytes memory data) private {
         // We need to perform a low level call here, to bypass Solidity's return data size checking mechanism, since
-        // we're implementing it ourselves. We use {Address.functionCall} to perform this call, which verifies that
+        // we're implementing it ourselves. We use {Address-functionCall} to perform this call, which verifies that
         // the target address contains contract code and also asserts for success in the low-level call.
 
         bytes memory returndata = address(token).functionCall(data, "SafeERC20: low-level call failed");
-        if (returndata.length > 0) {
-            // Return data is optional
-            require(abi.decode(returndata, (bool)), "SafeERC20: ERC20 operation did not succeed");
-        }
+        require(returndata.length == 0 || abi.decode(returndata, (bool)), "SafeERC20: ERC20 operation did not succeed");
+    }
+
+    /**
+     * @dev Imitates a Solidity high-level call (i.e. a regular function call to a contract), relaxing the requirement
+     * on the return value: the return value is optional (but if data is returned, it must not be false).
+     * @param token The token targeted by the call.
+     * @param data The call data (encoded using abi.encode or one of its variants).
+     *
+     * This is a variant of {_callOptionalReturn} that silents catches all reverts and returns a bool instead.
+     */
+    function _callOptionalReturnBool(IERC20 token, bytes memory data) private returns (bool) {
+        // We need to perform a low level call here, to bypass Solidity's return data size checking mechanism, since
+        // we're implementing it ourselves. We cannot use {Address-functionCall} here since this should return false
+        // and not revert is the subcall reverts.
+
+        (bool success, bytes memory returndata) = address(token).call(data);
+        return
+            success && (returndata.length == 0 || abi.decode(returndata, (bool))) && Address.isContract(address(token));
     }
 }
 
 
-// File @openzeppelin/contracts/security/ReentrancyGuard.sol@v4.7.1
+// File @openzeppelin/contracts/security/ReentrancyGuard.sol@v4.9.3
 
 // Original license: SPDX_License_Identifier: MIT
-// OpenZeppelin Contracts v4.4.1 (security/ReentrancyGuard.sol)
+// OpenZeppelin Contracts (last updated v4.9.0) (security/ReentrancyGuard.sol)
 
 pragma solidity ^0.8.0;
 
@@ -908,25 +1378,39 @@ abstract contract ReentrancyGuard {
      * `private` function that does the actual work.
      */
     modifier nonReentrant() {
-        // On the first call to nonReentrant, _notEntered will be true
+        _nonReentrantBefore();
+        _;
+        _nonReentrantAfter();
+    }
+
+    function _nonReentrantBefore() private {
+        // On the first call to nonReentrant, _status will be _NOT_ENTERED
         require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
 
         // Any calls to nonReentrant after this point will fail
         _status = _ENTERED;
+    }
 
-        _;
-
+    function _nonReentrantAfter() private {
         // By storing the original value once again, a refund is triggered (see
         // https://eips.ethereum.org/EIPS/eip-2200)
         _status = _NOT_ENTERED;
     }
+
+    /**
+     * @dev Returns true if the reentrancy guard is currently set to "entered", which indicates there is a
+     * `nonReentrant` function in the call stack.
+     */
+    function _reentrancyGuardEntered() internal view returns (bool) {
+        return _status == _ENTERED;
+    }
 }
 
 
-// File @openzeppelin/contracts/utils/math/SafeMath.sol@v4.7.1
+// File @openzeppelin/contracts/utils/math/SafeMath.sol@v4.9.3
 
 // Original license: SPDX_License_Identifier: MIT
-// OpenZeppelin Contracts (last updated v4.6.0) (utils/math/SafeMath.sol)
+// OpenZeppelin Contracts (last updated v4.9.0) (utils/math/SafeMath.sol)
 
 pragma solidity ^0.8.0;
 
@@ -1092,11 +1576,7 @@ library SafeMath {
      *
      * - Subtraction cannot overflow.
      */
-    function sub(
-        uint256 a,
-        uint256 b,
-        string memory errorMessage
-    ) internal pure returns (uint256) {
+    function sub(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
         unchecked {
             require(b <= a, errorMessage);
             return a - b;
@@ -1115,11 +1595,7 @@ library SafeMath {
      *
      * - The divisor cannot be zero.
      */
-    function div(
-        uint256 a,
-        uint256 b,
-        string memory errorMessage
-    ) internal pure returns (uint256) {
+    function div(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
         unchecked {
             require(b > 0, errorMessage);
             return a / b;
@@ -1141,11 +1617,7 @@ library SafeMath {
      *
      * - The divisor cannot be zero.
      */
-    function mod(
-        uint256 a,
-        uint256 b,
-        string memory errorMessage
-    ) internal pure returns (uint256) {
+    function mod(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
         unchecked {
             require(b > 0, errorMessage);
             return a % b;
@@ -1154,11 +1626,12 @@ library SafeMath {
 }
 
 
-// File contracts/CloudaxTresauryVestingWallet.sol
+// File contracts/CloudaxTresuaryOriginal.sol
 
 // Original license: SPDX_License_Identifier: MIT
 
 pragma solidity 0.8.20;
+
 
 
 
@@ -1182,7 +1655,8 @@ contract CloudaxTresauryVestingWallet is
     Pausable
 {
     using SafeMath for uint256;
-    using SafeERC20 for IERC20;
+    using SafeERC20 for ERC20;
+    // using SafeERC20 for IERC20;
 
     /**
      * @notice Reased event
@@ -1193,18 +1667,35 @@ contract CloudaxTresauryVestingWallet is
     event BeneficiarySet(
         address oldBeneficiaryAddress,
         address newBeneficiaryAddress
-    );  
-    event TokenSwap(address recipent, uint256 amount);
+    );
+    event TokenSwap(
+        address owner,
+        address recipent,
+        address admin,
+        uint256 amount,
+        string assesType
+    );
     event EcoWalletAdded(address ecoWallet, address currentContractOwner);
     event EcoWalletRemoved(address ecoWallet, address currentContractOwner);
-    event TokenBurnt(address owner, address burnAddress, uint256 amount);
-    event VestingInitialized(uint256 durationInMonths, address beneficiary, address projectToken, uint256 vestingAllocation);
+    event TokenBurnt(
+        address owner,
+        address recipent,
+        address admin,
+        address burnAddress,
+        uint256 amount
+    );
+    event VestingInitialized(
+        uint256 durationInMonths,
+        address beneficiary,
+        address projectToken,
+        uint256 vestingAllocation
+    );
 
     // Originally 30 days, changed to 1 minute for test purposes
-    uint256 private constant _RELEASE_TIME_UNIT = 30 days; 
+    uint256 private constant _RELEASE_TIME_UNIT = 30 days;
     // Originally 12 * 30 days, changed to 1 minute for test purposes
-    uint256 private constant _CLIFF_PEROID = 12 * 30 days; 
-    IERC20 private immutable _token;
+    uint256 private constant _CLIFF_PEROID = 12 * 30 days;
+    ERC20 private immutable _token;
     uint256 public ecoWallets;
 
     uint256 private _startTime;
@@ -1215,6 +1706,7 @@ contract CloudaxTresauryVestingWallet is
     uint256 private _releasedAmount;
     mapping(uint256 => uint256) private _previousTotalVestingAmount;
     mapping(address => uint256) public _swappedForEco;
+    mapping(address => uint256) public _swappedForCldx;
     mapping(address => uint256) public ecoApprovalWallet;
 
     /**
@@ -1223,7 +1715,7 @@ contract CloudaxTresauryVestingWallet is
      */
     constructor(address token_) {
         require(token_ != address(0), "invalid token address");
-        _token = IERC20(token_);
+        _token = ERC20(token_);
         _pause();
     }
 
@@ -1268,16 +1760,19 @@ contract CloudaxTresauryVestingWallet is
      * @notice start time of vesting schedule is automatically the time this method is called.
      * @param beneficiary_ address of the beneficiary.
      */
-    function initialize(uint256 months ,address beneficiary_, uint256 vestingAllocation) external initializer onlyOwner {
+    function initialize(
+        uint256 months,
+        address beneficiary_,
+        uint256 vestingAllocation
+    ) external initializer onlyOwner {
         _startTime = block.timestamp.add(_CLIFF_PEROID);
         uint256 RELEASE_AMOUNT_UNIT = vestingAllocation.div(100);
         _setBeneficiaryAddress(beneficiary_);
         // _startTime = startTime_.add(_CLIFF_PEROID);
 
         // 12 months
-        if(months == 12){
-            uint8[12] memory vestingSchedule = 
-            [
+        if (months == 12) {
+            uint8[12] memory vestingSchedule = [
                 8,
                 8,
                 8,
@@ -1293,14 +1788,15 @@ contract CloudaxTresauryVestingWallet is
             ];
 
             for (uint256 i = 0; i < 12; i++) {
-                _createVestingSchedule(vestingSchedule[i] * RELEASE_AMOUNT_UNIT);
+                _createVestingSchedule(
+                    vestingSchedule[i] * RELEASE_AMOUNT_UNIT
+                );
             }
         }
 
         // 24 months
-        if(months == 24){
-            uint8[24] memory vestingSchedule = 
-            [
+        if (months == 24) {
+            uint8[24] memory vestingSchedule = [
                 4,
                 4,
                 4,
@@ -1328,14 +1824,15 @@ contract CloudaxTresauryVestingWallet is
             ];
 
             for (uint256 i = 0; i < 24; i++) {
-                _createVestingSchedule(vestingSchedule[i] * RELEASE_AMOUNT_UNIT);
+                _createVestingSchedule(
+                    vestingSchedule[i] * RELEASE_AMOUNT_UNIT
+                );
             }
         }
 
         // 36 months
-        if(months == 36){
-            uint8[36] memory vestingSchedule = 
-            [
+        if (months == 36) {
+            uint8[36] memory vestingSchedule = [
                 2,
                 2,
                 2,
@@ -1375,14 +1872,15 @@ contract CloudaxTresauryVestingWallet is
             ];
 
             for (uint256 i = 0; i < 36; i++) {
-                _createVestingSchedule(vestingSchedule[i] * RELEASE_AMOUNT_UNIT);
+                _createVestingSchedule(
+                    vestingSchedule[i] * RELEASE_AMOUNT_UNIT
+                );
             }
         }
 
         // 48 months
-        if(months == 48){
-            uint8[48] memory vestingSchedule = 
-            [
+        if (months == 48) {
+            uint8[48] memory vestingSchedule = [
                 2,
                 2,
                 2,
@@ -1434,14 +1932,15 @@ contract CloudaxTresauryVestingWallet is
             ];
 
             for (uint256 i = 0; i < 48; i++) {
-                _createVestingSchedule(vestingSchedule[i] * RELEASE_AMOUNT_UNIT);
+                _createVestingSchedule(
+                    vestingSchedule[i] * RELEASE_AMOUNT_UNIT
+                );
             }
         }
 
         // 60 months (5 years)
-        if(months == 60){
-            uint8[60] memory vestingSchedule = 
-            [
+        if (months == 60) {
+            uint8[60] memory vestingSchedule = [
                 1,
                 1,
                 1,
@@ -1505,14 +2004,15 @@ contract CloudaxTresauryVestingWallet is
             ];
 
             for (uint256 i = 0; i < 60; i++) {
-                _createVestingSchedule(vestingSchedule[i] * RELEASE_AMOUNT_UNIT);
+                _createVestingSchedule(
+                    vestingSchedule[i] * RELEASE_AMOUNT_UNIT
+                );
             }
         }
 
         // 72 months (6 years)
-        if(months == 72 ){
-            uint8[72] memory vestingSchedule = 
-            [
+        if (months == 72) {
+            uint8[72] memory vestingSchedule = [
                 1,
                 1,
                 1,
@@ -1588,12 +2088,14 @@ contract CloudaxTresauryVestingWallet is
             ];
 
             for (uint256 i = 0; i < 72; i++) {
-                _createVestingSchedule(vestingSchedule[i] * RELEASE_AMOUNT_UNIT);
+                _createVestingSchedule(
+                    vestingSchedule[i] * RELEASE_AMOUNT_UNIT
+                );
             }
         }
 
         // 7 years
-        if(months == 84){
+        if (months == 84) {
             uint8[84] memory vestingSchedule = [
                 2,
                 1,
@@ -1681,11 +2183,18 @@ contract CloudaxTresauryVestingWallet is
                 3
             ];
             for (uint256 i = 0; i < 84; i++) {
-                _createVestingSchedule(vestingSchedule[i] * RELEASE_AMOUNT_UNIT);
+                _createVestingSchedule(
+                    vestingSchedule[i] * RELEASE_AMOUNT_UNIT
+                );
             }
         }
         _unpause();
-        emit VestingInitialized(months, beneficiary_, address(_token), vestingAllocation);
+        emit VestingInitialized(
+            months,
+            beneficiary_,
+            address(_token),
+            vestingAllocation
+        );
     }
 
     /**
@@ -1808,7 +2317,7 @@ contract CloudaxTresauryVestingWallet is
             "CloudrVesting: vesting schedule is not initialized"
         );
         (uint256 releaseAmount, , ) = _computeReleasableAmount(currentTime);
-        _token.safeTransfer(_beneficiaryAddress, releaseAmount);
+        _token.transfer(_beneficiaryAddress, releaseAmount);
         _releasedAmount = _releasedAmount.add(releaseAmount);
         emit Released(_beneficiaryAddress, releaseAmount);
         return true;
@@ -1825,43 +2334,88 @@ contract CloudaxTresauryVestingWallet is
 
     // @title a function to allow swapping CLDX to ecoToken.
     // @dev @dev This function helps the oracle swap CLDX to ECO tokens.
-    function swapCldxToEco (uint256 amount) external nonReentrant {
-        require(ecoApprovalWallet[msg.sender] != 0, "This wallet is not an approved EcoWallet");
+    function swapCldxToEco(uint256 amount, address recipent)
+        external
+        nonReentrant
+    {
+        require(
+            ecoApprovalWallet[msg.sender] != 0,
+            "This wallet is not an approved EcoWallet"
+        );
         require(amount != 0, "Amount must be greater than Zero");
-        require(_swappedForEco[msg.sender] >= amount, "You don't have enough recorded ECO for this swap");
         // burn CLDX by sending it to a zero address
-        _token.safeTransfer(address(0), amount);
-       _swappedForEco[msg.sender] -= amount;
-       emit TokenBurnt(msg.sender ,address(0), amount);
-        emit TokenSwap(address(0), amount);
+        require(
+            _token.balanceOf(address(this)) >= amount,
+            "Not enough cldx in treasury"
+        );
+
+        _swappedForEco[recipent] += amount;
+        emit TokenSwap(
+            address(0x000000000000000000000000000000000000dEaD),
+            recipent,
+            msg.sender,
+            amount,
+            "CldxToEco"
+        );
+        emit TokenBurnt(
+            address(this),
+            recipent,
+            msg.sender,
+            address(0x000000000000000000000000000000000000dEaD),
+            amount
+        );
+        _token.transfer(
+            address(0x000000000000000000000000000000000000dEaD),
+            amount
+        );
     }
 
     // @title a function to allow swapping ecoToken to CLDX.
     // @dev This function helps the oracle swap ECO to CLDX tokens.
-    function swapEcoToCldx (uint256 amount) external nonReentrant {
-        require(ecoApprovalWallet[msg.sender] != 0, "This wallet is not an approved EcoWallet");
+    function swapEcoToCldx(uint256 amount, address recipent)
+        external
+        nonReentrant
+    {
+        require(
+            ecoApprovalWallet[msg.sender] != 0,
+            "This wallet is not an approved EcoWallet"
+        );
+        require(recipent != address(0), "Must not be a zero address");
         require(amount != 0, "Amount must be greater than Zero");
-        _token.safeTransfer(msg.sender, amount);
-        if(_swappedForEco[msg.sender] != 0){
-            _swappedForEco[msg.sender] += amount;
-        }
-        _swappedForEco[msg.sender] = amount;
-        emit TokenSwap(msg.sender, amount);
+        // burn CLDX by sending it to a zero address
+        require(
+            _token.balanceOf(address(this)) >= amount,
+            "Not enough cldx in treasury"
+        );
+        _swappedForCldx[recipent] += amount;
+        emit TokenSwap(
+            address(this),
+            recipent,
+            msg.sender,
+            amount,
+            "EcoToCldx"
+        );
+        _token.transfer(recipent, amount);
     }
 
-    function aproveEcoWallet(address wallet) external onlyOwner{
-        require(ecoApprovalWallet[wallet] == 0, "This wallet is already an approved EcoWallet");
+    function aproveEcoWallet(address wallet) external onlyOwner {
+        require(
+            ecoApprovalWallet[wallet] == 0,
+            "This wallet is already an approved EcoWallet"
+        );
         ecoWallets += 1;
         ecoApprovalWallet[wallet] = ecoWallets;
         emit EcoWalletAdded(wallet, msg.sender);
     }
 
-    function removeEcoWallet(address wallet) external onlyOwner{
-        require(ecoApprovalWallet[wallet] != 0, "This wallet is not an approved EcoWallet");
+    function removeEcoWallet(address wallet) external onlyOwner {
+        require(
+            ecoApprovalWallet[wallet] != 0,
+            "This wallet is not an approved EcoWallet"
+        );
         ecoApprovalWallet[wallet] = 0;
         emit EcoWalletRemoved(wallet, msg.sender);
     }
-
 
     /**
      * @notice Withdraw the specified amount if possible.
@@ -1877,7 +2431,7 @@ contract CloudaxTresauryVestingWallet is
             getWithdrawableAmount() >= amount,
             "CloudrVesting: withdraw amount exceeds balance"
         );
-        _token.safeTransfer(owner(), amount);
+        _token.transfer(owner(), amount);
     }
 
     /**
@@ -1955,11 +2509,24 @@ contract CloudaxTresauryVestingWallet is
         return _CLIFF_PEROID;
     }
 
-    function burn(uint256 amount) external{
+    function burn(uint256 amount) public onlyOwner {
         // burn CLDX by sending it to a zero address
         require(amount != 0, "Amount must be greater than Zero");
-        _token.safeTransfer(address(0), amount);
-        emit TokenBurnt(msg.sender ,address(0), amount);
-    }
+        require(
+            _token.balanceOf(address(this)) >= amount,
+            "Not enough tokens in treasury"
+        );
+        _token.transfer(
+            address(0x000000000000000000000000000000000000dEaD),
+            amount
+        );
 
+        emit TokenBurnt(
+            address(this),
+            msg.sender,
+            msg.sender,
+            address(0x000000000000000000000000000000000000dEaD),
+            amount
+        );
+    }
 }
